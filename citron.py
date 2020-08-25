@@ -19,7 +19,13 @@ from bs4 import BeautifulSoup
 import commands
 import settings
 
-
+token = os.environ['DISCORD_BOT_TOKEN']
+DB = {
+    "host": "XXXX",
+    "user": "XXXX",
+    "pass": "XXXX",
+    "db": "XXXX"
+}
 
 # -------------google drive 認証-------------------------------------------------
 # If modifying these scopes, delete the file token.pickle.
@@ -50,9 +56,6 @@ if not creds or not creds.valid:
 service = build('drive', 'v3', credentials=creds)
 # --------------------------------------------------------------------------------
 
-
-# 自分のBotのアクセストークンに置き換えてください
-TOKEN = settings.TOKEN
 
 # 接続に必要なオブジェクトを生成
 client = discord.Client()
@@ -85,7 +88,7 @@ async def on_message(message):
         return
 
 
-    if message.content.startswith('/play'):
+    if message.content.startswith('mdb!play'):
         voice_channel = client.get_channel(message.guild.voice_channels[0].id)
         voice_client = message.guild.voice_client
 
@@ -108,7 +111,7 @@ async def on_message(message):
             filename = data['title'] + ".mp3"
 
             if not os.path.exists(filename):
-                await message.channel.send("ダウンロードしてくるからちょっと待ってて！")
+                await message.channel.send("ダウンロードしています。お待ちください。")
                 loop = asyncio.get_event_loop()
                 data = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=True))
             
@@ -118,10 +121,10 @@ async def on_message(message):
                 voice = await voice_channel.connect()
             # 再生中、一時停止中はキューに入れる
             if audio_queue.empty() and not voice.is_playing() and not voice.is_paused():
-                await message.channel.send("**"+data['title']+"**を再生するよー♪")
+                await message.channel.send("**"+data['title']+"**を再生します")
                 voice.play(audio_source,after=check_queue)
             else:
-                await message.channel.send("**"+filename+"**を再生リストに入れておくね！")
+                await message.channel.send("**"+filename+"**を再生リストに追加します")
                 audio_queue.put(audio_source)
         else: #youtube以外の場合
             results = service.files().list(q="mimeType != 'application/vnd.google-apps.folder' and name contains '"+search_word[1]+"'",
@@ -129,14 +132,14 @@ async def on_message(message):
             items = results.get('files', [])
 
             if len(items) == 0:
-                await message.channel.send("その曲はないみたい")
+                await message.channel.send("その曲は存在しないようです。")
             elif len(items) == 1: #1曲のときのみ再生する
                 filename = items[0]['name']
                 if not os.path.exists(filename):
                     request = service.files().get_media(fileId=items[0]['id']) #httpリクエストを返す
                     fh = io.FileIO(filename, "wb")
                     downloader = MediaIoBaseDownload(fh, request)
-                    await message.channel.send("ダウンロードしてくるからちょっと待ってて！")
+                    await message.channel.send("ダウンロードしています。お待ちください。")
                     done = False
                     while done is False:
                         status, done = downloader.next_chunk()
@@ -148,58 +151,58 @@ async def on_message(message):
                     voice = await voice_channel.connect()
                 # 再生中、一時停止中はキューに入れる
                 if audio_queue.empty() and not voice.is_playing() and not voice.is_paused():
-                    await message.channel.send("**"+filename+"**を再生するよー♪")
+                    await message.channel.send("**"+filename+"**を再生します")
                     voice.play(audio_source,after=check_queue)
                 else:
-                    await message.channel.send("**"+filename+"**を再生リストに入れておくね！")
+                    await message.channel.send("**"+filename+"**を再生リストに追加します。")
                     audio_queue.put(audio_source)
             elif len(items) >= 2: #10曲まで表示する
-                msg = "**どれにするー？**\n----------------------------\n"
+                msg = "**選択してください。**\n----------------------------\n"
                 for item in items:
                     msg += item['name'] + "\n"
                 msg += "----------------------------"
                 await message.channel.send(msg)
     
 
-    if message.content.startswith('/stop'):
+    if message.content.startswith('mdb!stop'):
         # voice_client = message.guild.voice_client
         if voice.is_playing():
-            await message.channel.send("曲、止めちゃうの？")
+            await message.channel.send("曲の再生を停止します")
             voice.stop()
         else:
-            await message.channel.send("もう止まってるよ？")
+            await message.channel.send("すでに停止しています")
 
 
-    if message.content.startswith('/pause'):
+    if message.content.startswith('mdb!pause'):
         # voice_client = message.guild.voice_client
         if voice.is_paused():
-            await message.channel.send("再開は/resumeだよー")
+            await message.channel.send("mdb!resumeで再生を再開します")
         else:
-            await message.channel.send("一時停止ｸﾞｻｧｰｯ!")
+            await message.channel.send("一時停止をします")
             voice.pause()
 
 
-    if message.content.startswith('/resume'):
+    if message.content.startswith('mdb!resume'):
         # voice_client = message.guild.voice_client
         if voice.is_paused():
-            await message.channel.send("再開するよ！")
+            await message.channel.send("再生を再開します")
             voice.resume()
         else:
-            await message.channel.send("再生中だよー")
+            await message.channel.send("すでに再生しています")
 
 
-    if message.content.startswith('/list'):
+    if message.content.startswith('mdb!list'):
         if audiofile_list != []:
-            msg = "今の再生リストはこんな感じだよー\n----------------------------\n"
+            msg = "現在の再生リストはこちらです\n----------------------------\n"
             for i in range(0,len(audiofile_list)):
                 msg += "**"+str(i+1)+".** "+audiofile_list[i] + "\n"
             msg += "----------------------------"
             await message.channel.send(msg)
         else:
-            await message.channel.send("静かだねぇ〜")
+            await message.channel.send("再生リストに何も入っていません")
 
 
-    if message.content.startswith('/profile'):
+    if message.content.startswith('mdb!profile'):
         key = message.content.split(" ",1)
         data = ('%'+key[1]+'%', '%'+key[1]+'%')
         sql = "SELECT * FROM idol where name like %s or kana like %s"
@@ -218,9 +221,9 @@ async def on_message(message):
         cursor.execute(sql,data)
         rows = cursor.fetchall()
         if len(rows) == 0:
-            await message.channel.send("その名前の子はいないよ〜")
+            await message.channel.send("入力した名前の人物は存在しないようです")
         for row in rows:
-            await message.channel.send(row['name']+"さんのプロフィールはこちら！")
+            await message.channel.send(row['name']+"さんのプロフィールです:")
             await message.channel.send(
                 "名前："+row['name']+"（"+row['kana']+"）\n"+
                 "年齢："+str(row['age'])+"\t誕生日："+row['birthday']+"\t星座："+row['constellation']+"\n"+
@@ -235,7 +238,7 @@ async def on_message(message):
 
 
     # ex) /search 3 <keyword>、/search <keyword>
-    if message.content.startswith('/search'):
+    if message.content.startswith('mdb!search'):
         msg = message.content.split(" ")
         if msg[1].isnumeric():
             search_word = message.content.split(" ",2)[2]
@@ -256,25 +259,25 @@ async def on_message(message):
         soup = BeautifulSoup(response.text, 'html.parser')
         elements = soup.select("img[src*='http']")
         # print(elements)
-        await message.channel.send(num_img + "件探してくるね！")
+        await message.channel.send(num_img + "件検索します")
         for i in range(num_img):
             img = elements[i]
             await message.channel.send(img.attrs['src'])
 
 
 
-    if message.content.startswith('/yuzu'):
-        await message.channel.send("なになに？柚とお話したいの？")
+    if message.content.startswith('mdb!musicis'):
+        await message.channel.send("Music is awesome.")
 
 
-    if message.content.startswith('/name'):
+    if message.content.startswith('mdb!name'):
         await message.channel.send(client.user.display_name)
         await client.user.edit(username="DJ_Citron")
         await message.channel.send(client.user.display_name)
 
 
-    if message.content == '/bye':
-        await message.channel.send("じゃあねー♪")
+    if message.content == 'mdb!bye':
+        await message.channel.send("離脱します")
         voice_client = message.guild.voice_client
         if voice_client:
             await voice_client.disconnect()
@@ -283,8 +286,8 @@ async def on_message(message):
         await client.logout()
 
 
-    if message.content == '/help':
-        msg = "柚の使い方はこちら♪\n"
+    if message.content == 'mdb!help':
+        msg = "音楽のコマンド一覧\n"
         for i in commands.commands.items():
             msg += "`"+i[0]+"` : "+i[1]+"\n"
         await message.channel.send(msg)
@@ -292,4 +295,4 @@ async def on_message(message):
 
 
 # Botの起動とDiscordサーバーへの接続
-client.run(TOKEN)
+client.run(token)
